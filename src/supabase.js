@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js'
+
+const SUPABASE_URL = 'https://iamsfezpzdbrgofilism.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbXNmZXpwemRicmdvZmlsaXNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNDc4NDIsImV4cCI6MjA5MTgyMzg0Mn0.F54VPWybWg1WJh95O8FDwkzhr0BFsHovhcfemg8Oa-8'
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   realtime: { params: { eventsPerSecond: 10 } }
@@ -32,28 +34,15 @@ export const profilesAPI = {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
     if (error) throw error
     return data
-  },
-  async update(userId, updates) {
-    const { data, error } = await supabase.from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', userId).select().single()
-    if (error) throw error
-    return data
   }
 }
 
 export const stationsAPI = {
   async getByCity(cidade) {
-    const { data, error } = await supabase.from('stations')
+    const { data, error } = await supabase
+      .from('stations')
       .select('*, fuel_availability(tipo,disponivel,nivel_pct,fila,fila_qtd,status,updated_at)')
       .eq('cidade', cidade).eq('ativa', true).order('nome')
-    if (error) throw error
-    return data
-  },
-  async get(id) {
-    const { data, error } = await supabase.from('stations')
-      .select('*, fuel_availability(*), reports(*, profiles(nome,tipo))')
-      .eq('id', id).single()
     if (error) throw error
     return data
   },
@@ -73,8 +62,8 @@ export const fuelAPI = {
       fila: fila || 'nenhuma', fila_qtd: filaQtd || 0,
       updated_by: user?.id, updated_at: new Date().toISOString()
     }))
-    const { data, error } = await supabase.from('fuel_availability')
-      .upsert(rows, { onConflict: 'station_id,tipo' }).select()
+    const { data, error } = await supabase
+      .from('fuel_availability').upsert(rows, { onConflict: 'station_id,tipo' }).select()
     if (error) throw error
     return data
   }
@@ -88,28 +77,8 @@ export const reportsAPI = {
       .insert({ station_id: stationId, user_id: user.id, tipo_fuel: tipoFuel, fila, fila_qtd: filaQtd || 0, nota })
       .select('*, profiles(nome,tipo)').single()
     if (error) throw error
-    await supabase.rpc('add_user_points', { uid: user.id, pts: 5 })
+    await supabase.rpc('add_user_points', { uid: user.id, pts: 5 }).catch(() => {})
     return data
-  },
-  async getByStation(stationId, limit = 20) {
-    const { data, error } = await supabase.from('reports')
-      .select('*, profiles(nome,tipo)')
-      .eq('station_id', stationId).order('created_at', { ascending: false }).limit(limit)
-    if (error) throw error
-    return data
-  },
-  async vote(reportId, voto) {
-    const user = await authAPI.getUser()
-    if (!user) throw new Error('Precisas de estar autenticado')
-    const { data: existing } = await supabase.from('report_votes')
-      .select('id,voto').eq('report_id', reportId).eq('user_id', user.id).maybeSingle()
-    if (existing?.voto === voto) {
-      await supabase.from('report_votes').delete().eq('id', existing.id)
-    } else if (existing) {
-      await supabase.from('report_votes').update({ voto }).eq('id', existing.id)
-    } else {
-      await supabase.from('report_votes').insert({ report_id: reportId, user_id: user.id, voto })
-    }
   }
 }
 
@@ -121,11 +90,11 @@ export const messagesAPI = {
     if (error) throw error
     return data.reverse()
   },
-  async send({ conteudo, stationId, imagemUrl }) {
+  async send({ conteudo, stationId }) {
     const user = await authAPI.getUser()
     if (!user) throw new Error('Precisas de estar autenticado')
     const { data, error } = await supabase.from('messages')
-      .insert({ user_id: user.id, conteudo, station_id: stationId || null, imagem_url: imagemUrl || null })
+      .insert({ user_id: user.id, conteudo, station_id: stationId || null })
       .select('*, profiles(nome,tipo)').single()
     if (error) throw error
     return data
