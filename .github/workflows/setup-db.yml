@@ -1,0 +1,24 @@
+name: Setup Supabase Database
+
+on:
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Run Schema
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          supabase db execute \
+            --project-ref iamsfezpzdbrgofilism \
+            --db-url "${{ secrets.SUPABASE_DB_URL }}" \
+            < schema.sql
